@@ -5,7 +5,6 @@ import mock
 
 
 arg_pattern = re.compile('^:type\s+(\w+):\s+([^\s]+)$')
-return_pattern = re.compile('^:rtype:\s+([^\s]+)$')
 
 
 def patch(*args, **kwargs):
@@ -44,10 +43,32 @@ def validate_calls(orig_func, docblock, calls):
 
 
 def get_type(name, orig_func):
+    """
+    Given the name of a type and the original function, try to import and return
+    the referenced type.
+
+    :param name:        the name of a type
+    :type  name:        basestring
+    :param orig_func:   the original function being mocked
+    :type  orig_func:   function
+
+    :rtype: type or None
+    """
+    # try to find it as a builtin
     if name in __builtins__:
         builtin = __builtins__[name]
         if isinstance(builtin, type):
             return builtin
 
-    return mock._importer(name)
+    # try to find it as a relative reference within the original module
+    if '.' not in name:
+        try:
+            return mock._importer('.'.join([orig_func.__module__, name]))
+        except ImportError:
+            pass
 
+    # try to find it as an absolute path
+    try:
+        return mock._importer(name)
+    except ImportError:
+        pass
